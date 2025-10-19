@@ -43,7 +43,6 @@ import pathlib
 import sqlite3
 from functools import cached_property
 from typing import Any, Callable, get_type_hints
-from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -62,7 +61,11 @@ from .personinfo import MPRI_Reg_Rect, MWG_RS_Area
 from .photoexporter import PhotoExporter
 from .photoinfo import PhotoInfo
 from .photoquery import QueryOptions, photo_query
-from .photos_datetime import photos_datetime, photos_datetime_local
+from .photos_datetime import (
+    photos_datetime,
+    photos_datetime_local,
+    iphoto_date_to_datetime,
+)
 from .phototemplate import PhotoTemplate, RenderOptions
 from .platform import is_macos
 from .scoreinfo import ScoreInfo
