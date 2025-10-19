@@ -21,3 +21,4 @@ sphinxcontrib-programoutput
 twine
 wheel
 setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
+cython==3.1.4

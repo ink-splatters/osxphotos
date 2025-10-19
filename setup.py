@@ -30,7 +30,10 @@
 import os
 import platform
 
+from multiprocessing import cpu_count
 from setuptools import find_packages, setup
+
+from Cython.Build import cythonize
 
 # python version as 2-digit float (e.g. 3.6)
 py_ver = float(".".join(platform.python_version_tuple()[:2]))
@@ -136,4 +139,5 @@ setup(
     ],
     entry_points={"console_scripts": ["osxphotos=osxphotos.__main__:cli_main"]},
     include_package_data=True,
+    ext_modules=cythonize("osxphotos/**/*.py", exclude=["osxphotos/disclaim.py", "osxphotos/cli/*.py"],nthreads=cpu_count(), language="c++", annotate=False, language_level='3')
 )
