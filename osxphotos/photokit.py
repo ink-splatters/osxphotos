@@ -92,21 +92,27 @@ MIN_SLEEP = 0.015
 
 ### utility functions
 def NSURL_to_path(url):
-    """Convert URL string as represented by NSURL to a path string"""
-    nsurl = Foundation.NSURL.alloc().initWithString_(
-        Foundation.NSString.alloc().initWithString_(str(url))
+    """Convert NSURL or URL string to a path string"""
+    nsurl = (
+        url
+        if hasattr(url, "fileSystemRepresentation")
+        else Foundation.NSURL.alloc().initWithString_(str(url))
     )
     path = nsurl.fileSystemRepresentation().decode("utf-8")
-    nsurl.dealloc()
+
     return path
 
 
 def path_to_NSURL(path):
     """Convert path string to NSURL"""
-    pathstr = Foundation.NSString.alloc().initWithString_(str(path))
-    url = Foundation.NSURL.fileURLWithPath_(pathstr)
-    pathstr.dealloc()
+    url = Foundation.NSURL.fileURLWithPath_(str(path))
+
     return url
+
+
+def _nsarray_to_list(nsarray):
+    """Convert an Objective-C NSArray to a Python list of element proxies."""
+    return [nsarray.objectAtIndex_(idx) for idx in range(nsarray.count())]
 
 
 def check_photokit_authorization():
@@ -238,7 +244,6 @@ class PhotoKitNotificationDelegate(NSObject):
 
     def __del__(self):
         pass
-        # super(NSObject, self).dealloc()
 
 
 ### main class implementation
@@ -660,12 +665,14 @@ class PhotoAsset:
                 self.phasset, options_request, handler
             )
             event.wait()
-            # options_request.dealloc()
 
-            # not sure why this is needed -- some weird ref count thing maybe
-            # if I don't do this, memory leaks
+            # The handler creates a closure that captures the accumulator `requestdata`,
+            # which forms a reference cycle across Python and the ObjC-block wrapper. The
+            # code below uses a shallow copy to detach a small, standalone object and
+            # then deletes the accumulator to break the cycle (and let large ObjC proxies
+            # drop immediately).
             data = copy.copy(requestdata)
-            del requestdata
+            requestdata = None
             return data
 
     def _request_resource_data(self, resource):
@@ -707,10 +714,13 @@ class PhotoAsset:
 
             event.wait()
 
-            # not sure why this is needed -- some weird ref count thing maybe
-            # if I don't do this, memory leaks
+            # The handler creates a closure that captures the accumulator `requestdata`,
+            # which forms a reference cycle across Python and the ObjC-block wrapper. The
+            # code below uses a shallow copy to detach a small, standalone object and
+            # then deletes the accumulator to break the cycle (and let large ObjC proxies
+            # drop immediately).
             data = copy.copy(requestdata.data)
-            del requestdata
+            requestdata = None
             return data
 
     def _make_result_handle_(self, data):
@@ -747,7 +757,7 @@ class PhotoAsset:
     def _resources(self):
         """Return list of PHAssetResource for object"""
         resources = Photos.PHAssetResource.assetResourcesForAsset_(self.phasset)
-        return [resources.objectAtIndex_(idx) for idx in range(resources.count())]
+        return _nsarray_to_list(resources)
 
 
 class SlowMoVideoExporter(NSObject):
@@ -807,12 +817,10 @@ class SlowMoVideoExporter(NSObject):
                 time.sleep(MIN_SLEEP)
 
             exported_path = NSURL_to_path(exporter.outputURL())
-            # exporter.dealloc()
             return exported_path
 
     def __del__(self):
         self.avasset = None
-        self.url.dealloc()
         self.url = None
         self.done = None
         self.nc = None
@@ -939,7 +947,6 @@ class VideoAsset(PhotoAsset):
                 videodata.asset, output_file
             )
             video = exporter.exportSlowMoVideo()
-            # exporter.dealloc()
             return video
 
     # todo: rewrite this with NotificationCenter and App event loop?
@@ -990,7 +997,7 @@ class VideoAsset(PhotoAsset):
             # not sure why this is needed -- some weird ref count thing maybe
             # if I don't do this, memory leaks
             data = copy.copy(requestdata)
-            del requestdata
+            requestdata = None
             return data
 
 
@@ -1047,17 +1054,18 @@ class LivePhotoRequest(NSObject):
             except KeyboardInterrupt:
                 AppHelper.stopEventLoop()
             finally:
-                pass
+                # remove observer to avoid leaks / dangling callbacks
+                try:
+                    self.nc.removeObserver_(delegate)
+                except Exception:
+                    pass
 
             asset_resources = Photos.PHAssetResource.assetResourcesForLivePhoto_(
                 self.live_photo
             )
 
-            # not sure why this is needed -- some weird ref count thing maybe
-            # if I don't do this, memory leaks
-            data = copy.copy(asset_resources)
-            del asset_resources
-            return data
+            # Return a plain Python list to avoid holding the ObjC container longer than needed
+            return _nsarray_to_list(asset_resources)
 
     def __del__(self):
         self.manager = None
@@ -1065,7 +1073,6 @@ class LivePhotoRequest(NSObject):
         self.nc = None
         self.live_photo = None
         self.info = None
-        # super(NSObject, self).dealloc()
 
 
 class LivePhotoAsset(PhotoAsset):
@@ -1162,7 +1169,7 @@ class LivePhotoAsset(PhotoAsset):
                     exported.append(str(video_output_file))
                     del data
 
-                request.dealloc()
+                request = None
                 return exported
 
 
