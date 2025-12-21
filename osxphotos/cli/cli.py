@@ -12,8 +12,6 @@ from osxphotos._constants import PROFILE_SORT_KEYS
 from osxphotos.disclaim import disclaim, pyapp, pyinstaller
 from osxphotos.platform import check_and_warn_macos_version, is_macos
 
-from .about import about
-from .albums import albums
 from .cli_params import DEBUG_OPTIONS, VERSION_OPTION
 from .common import OSXPHOTOS_HIDDEN
 from .compare import compare
@@ -53,6 +51,8 @@ if is_macos:
     from .sync import sync
     from .timewarp import timewarp
     from .uuid import uuid
+from ._lazy_commands import LazyGroup, create_lazy_cli_group
+from ._photos_access import invoke_disclaim_if_needed
 
 
 # Click CLI object & context settings
@@ -66,7 +66,11 @@ class CLI_Obj:
 CTX_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
-@click.group(context_settings=CTX_SETTINGS)
+@click.command(
+    cls=LazyGroup,
+    lazy_commands=create_lazy_cli_group(),
+    context_settings=CTX_SETTINGS
+)
 @VERSION_OPTION
 @DEBUG_OPTIONS
 @click.option(
@@ -112,9 +116,9 @@ def cli_main(ctx, profile, profile_sort, **kwargs):
 
     check_and_warn_macos_version()
 
-    if pyinstaller() or pyapp():
-        # Running from executable, run disclaimer
-        disclaim()
+    # Selectively invoke disclaim() only for commands that need Photos access
+    # This is deferred to subcommand execution via LazyGroup
+    # Note: disclaim is now invoked in the LazyGroup.get_command() method
 
     if profile:
         click.echo("Profiling...")
@@ -142,6 +146,7 @@ def cli_main(ctx, profile, profile_sort, **kwargs):
     atexit.register(flush_stderr)
 
 
+<<<<<<< Updated upstream
 # install CLI commands
 commands = [
     about,
@@ -192,3 +197,57 @@ if is_macos:
 
 for command in commands:
     cli_main.add_command(command)
+||||||| Stash base
+# install CLI commands
+commands = [
+    about,
+    albums,
+    compare,
+    debug_dump,
+    diff,
+    docs_command,
+    dump,
+    exiftool,
+    export,
+    exportdb,
+    grep,
+    help,
+    info,
+    install,
+    keywords,
+    labels,
+    list_libraries,
+    orphans,
+    persons,
+    places,
+    query,
+    repl,
+    run,
+    snap,
+    theme,
+    tutorial,
+    template_repl,
+    uninstall,
+    version,
+    update_command,
+]
+
+if is_macos:
+    commands += [
+        add_locations,
+        batch_edit,
+        import_main,
+        photo_inspect,
+        push_exif,
+        show,
+        sync,
+        timewarp,
+        uuid,
+    ]
+
+for command in commands:
+    cli_main.add_command(command)
+=======
+# Commands are now lazy-loaded via LazyGroup
+# No need to eagerly import and register all commands
+>>>>>>> Stashed changes

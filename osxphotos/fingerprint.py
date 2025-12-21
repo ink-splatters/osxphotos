@@ -18,20 +18,31 @@ from .platform import assert_macos
 
 assert_macos()
 
-import objc
-from Foundation import NSURL
+# Lazy load CloudPhotoLibrary bundle on first use
+_bundle = None
+_CPLResourceIdentity = None
 
-# Load the CloudPhotoLibrary private framework
-# Use scan_classes=False to avoid loading all the classes in the framework (which is slow)
-bundle = objc.loadBundle(
-    "CPLResourceIdentity",
-    bundle_path=objc.pathForFramework(
-        "/System/Library/PrivateFrameworks/CloudPhotoLibrary.framework"
-    ),
-    module_globals=globals(),
-    scan_classes=False,
-)
-CPLResourceIdentity = bundle.classNamed_("CPLResourceIdentity")
+
+def _ensure_cpl_loaded():
+    """Lazy load CloudPhotoLibrary private framework on first fingerprint() call."""
+    global _bundle, _CPLResourceIdentity
+    if _CPLResourceIdentity is not None:
+        return _CPLResourceIdentity
+    
+    import objc
+    
+    # Load the CloudPhotoLibrary private framework
+    # Use scan_classes=False to avoid loading all the classes in the framework (which is slow)
+    _bundle = objc.loadBundle(
+        "CPLResourceIdentity",
+        bundle_path=objc.pathForFramework(
+            "/System/Library/PrivateFrameworks/CloudPhotoLibrary.framework"
+        ),
+        module_globals=globals(),
+        scan_classes=False,
+    )
+    _CPLResourceIdentity = _bundle.classNamed_("CPLResourceIdentity")
+    return _CPLResourceIdentity
 
 
 def fingerprint(filepath: str | pathlib.Path | os.PathLike) -> str:
@@ -46,6 +57,13 @@ def fingerprint(filepath: str | pathlib.Path | os.PathLike) -> str:
         FileNotFoundError if file not found
     """
 
+    # Lazy load CloudPhotoLibrary framework
+    CPLResourceIdentity = _ensure_cpl_loaded()
+    
+    # Import objc and Foundation only when needed
+    import objc
+    from Foundation import NSURL
+    
     # Convert the file URL to an NSURL object
     filepath = (
         pathlib.Path(filepath) if not isinstance(filepath, pathlib.Path) else filepath

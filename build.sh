@@ -3,6 +3,17 @@
 # script to help build osxphotos release
 # this is unique to my own dev setup
 
+# Filter out native CPU optimizations for portable distribution builds
+# Keep shell.nix flags for development, but make wheels portable
+export CXXFLAGS=$(echo "${CXXFLAGS:-}" | sed 's/-mcpu=native/-mcpu=apple-m1/g; s/-march=native/-march=armv8.5-a/g')
+export CPPFLAGS=$(echo "${CPPFLAGS:-}" | sed 's/-mcpu=native/-mcpu=apple-m1/g; s/-march=native/-march=armv8.5-a/g')
+export CFLAGS=$(echo "${CFLAGS:-}" | sed 's/-mcpu=native/-mcpu=apple-m1/g; s/-march=native/-march=armv8.5-a/g')
+
+echo "Build flags (portable):"
+echo "  CXXFLAGS: $CXXFLAGS"
+echo "  CPPFLAGS: $CPPFLAGS"
+echo "  CFLAGS: $CFLAGS"
+
 echo "Cleaning old build and dist directories"
 rm -rf dist
 rm -rf build

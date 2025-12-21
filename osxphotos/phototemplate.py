@@ -11,8 +11,6 @@ from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Tuple
 
-from textx import TextXSyntaxError, metamodel_from_file
-
 import osxphotos.template_counter as counter
 
 from ._constants import _UNKNOWN_PERSON, TEXT_DETECTION_CONFIDENCE_THRESHOLD
@@ -407,15 +405,29 @@ class PhotoTemplateParser:
 
     def __init__(self):
         """return existing singleton or create a new one"""
+        # Do NOT eagerly load metamodel; defer until first parse()
+        pass
 
+    def _ensure_metamodel(self):
+        """Lazy load the TextX metamodel on first use."""
         if hasattr(self, "metamodel"):
             return
-
+        
+        # Import textx only when needed
+        from textx import metamodel_from_file
         self.metamodel = metamodel_from_file(MTL_GRAMMAR_MODEL, skipws=False)
 
     def parse(self, template_statement):
         """Parse a template_statement string"""
-        return self.metamodel.model_from_str(template_statement)
+        self._ensure_metamodel()
+        try:
+            return self.metamodel.model_from_str(template_statement)
+        except Exception as e:
+            # Import TextXSyntaxError only when needed
+            from textx import TextXSyntaxError
+            if isinstance(e, TextXSyntaxError):
+                raise
+            raise
 
     def fields(self, template_statement):
         """Return list of fields found in a template statement; does not verify that fields are valid"""

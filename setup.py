@@ -38,6 +38,66 @@ from Cython.Build import cythonize
 # python version as 2-digit float (e.g. 3.6)
 py_ver = float(".".join(platform.python_version_tuple()[:2]))
 
+# Curated list of modules to Cythonize for performance
+# Focus on hot-path modules that benefit most from compilation
+CYTHON_MODULES = [
+    # Core data structures and processing
+    "osxphotos/photosdb/photosdb.py",
+    "osxphotos/photosdb/photosdb_utils.py",
+    "osxphotos/photosdb/_photosdb_process_comments.py",
+    "osxphotos/photosdb/_photosdb_process_exif.py",
+    "osxphotos/photosdb/_photosdb_process_faceinfo.py",
+    "osxphotos/photosdb/_photosdb_process_scoreinfo.py",
+    "osxphotos/photosdb/_photosdb_process_searchinfo.py",
+    "osxphotos/photosdb/_photosdb_process_shared_library.py",
+    "osxphotos/photosdb/_photosdb_process_syndicationinfo.py",
+    
+    # Photo info and metadata
+    "osxphotos/photoinfo.py",
+    "osxphotos/photoinfo_common.py",
+    "osxphotos/photoinfo_file.py",
+    "osxphotos/exifinfo.py",
+    "osxphotos/personinfo.py",
+    "osxphotos/albuminfo.py",
+    "osxphotos/momentinfo.py",
+    "osxphotos/placeinfo.py",
+    "osxphotos/scoreinfo.py",
+    "osxphotos/searchinfo.py",
+    
+    # Export and file operations (hot path)
+    "osxphotos/photoexporter.py",
+    "osxphotos/export_db.py",
+    "osxphotos/export_db_utils.py",
+    "osxphotos/fileutil.py",
+    "osxphotos/exifwriter.py",
+    "osxphotos/image_file_utils.py",
+    
+    # Database and queries
+    "osxphotos/phototables.py",
+    "osxphotos/photoquery.py",
+    "osxphotos/query_builder.py",
+    "osxphotos/sqlite_utils.py",
+    "osxphotos/fingerprintquery.py",
+    
+    # Utility modules with heavy computation
+    "osxphotos/datetime_utils.py",
+    "osxphotos/path_utils.py",
+    "osxphotos/exifutils.py",
+    "osxphotos/utils.py",
+    "osxphotos/timeutils.py",
+    "osxphotos/unicode.py",
+    
+    # Comparison and analysis
+    "osxphotos/compare_exif.py",
+    "osxphotos/compare_libraries.py",
+    "osxphotos/dictdiff.py",
+    
+    # Other performance-sensitive modules
+    "osxphotos/exiftool.py",
+    "osxphotos/sidecars.py",
+    "osxphotos/iphoto.py",
+]
+
 # holds config info read from disk
 about = {}
 this_directory = os.path.abspath(os.path.dirname(__file__))
@@ -146,5 +206,17 @@ setup(
     ],
     entry_points={"console_scripts": ["osxphotos=osxphotos.__main__:cli_main"]},
     include_package_data=True,
-    ext_modules=cythonize("osxphotos/**/*.py", exclude=["osxphotos/disclaim.py", "osxphotos/cli/*.py"],nthreads=cpu_count(), language="c++", annotate=False, language_level='3')
+    ext_modules=cythonize(
+        CYTHON_MODULES,
+        nthreads=cpu_count(),
+        language="c++",
+        annotate=False,
+        language_level='3',
+        compiler_directives={
+            'boundscheck': False,
+            'wraparound': False,
+            'initializedcheck': False,
+            'cdivision': True,
+        }
+    )
 )

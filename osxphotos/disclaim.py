@@ -50,9 +50,17 @@ def disclaim(library_path: str | None = None):
         os.environ["_MEIPASS2"] = sys._MEIPASS
 
     # Load the disclaim library and call the disclaim function
-    machine = platform.machine()
-    library_path = library_path or os.path.join(
-        os.path.dirname(__file__), "lib", f"libdisclaim_{machine}.dylib"
-    )
+    # Try universal2 library first, fall back to arch-specific
+    if library_path is None:
+        lib_dir = os.path.join(os.path.dirname(__file__), "lib")
+        universal_lib = os.path.join(lib_dir, "libdisclaim.dylib")
+        
+        if os.path.exists(universal_lib):
+            library_path = universal_lib
+        else:
+            # Fall back to arch-specific library
+            machine = platform.machine()
+            library_path = os.path.join(lib_dir, f"libdisclaim_{machine}.dylib")
+    
     libdisclaim = ctypes.cdll.LoadLibrary(library_path)
     libdisclaim.disclaim()
